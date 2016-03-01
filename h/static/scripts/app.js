@@ -114,15 +114,6 @@ function processAppOpts() {
   }
 }
 
-// @ngInject
-function setupTemplateCache($templateCache) {
-  // 'thread.html' is used via ng-include so it needs to be added
-  // to the template cache. Other components just require() templates
-  // directly as strings.
-  $templateCache.put('thread.html',
-    require('../../templates/client/thread.html'));
-}
-
 module.exports = angular.module('h', [
   // Angular addons which export the Angular module name
   // via module.exports
@@ -150,6 +141,7 @@ module.exports = angular.module('h', [
   .controller('WidgetController', require('./widget-controller'))
 
   .directive('annotation', require('./directive/annotation').directive)
+  .directive('annotationThread', require('./directive/annotation-thread'))
   .directive('deepCount', require('./directive/deep-count'))
   .directive('excerpt', require('./directive/excerpt').directive)
   .directive('formInput', require('./directive/form-input'))
@@ -191,6 +183,7 @@ module.exports = angular.module('h', [
   .service('permissions', require('./permissions'))
   .service('queryParser', require('./query-parser'))
   .service('render', require('./render'))
+  .service('rootThread', require('./root-thread'))
   .service('searchFilter', require('./search-filter'))
   .service('session', require('./session'))
   .service('streamFilter', require('./stream-filter'))
@@ -213,7 +206,6 @@ module.exports = angular.module('h', [
   .config(configureRoutes)
 
   .run(setupCrossFrame)
-  .run(setupHttp)
-  .run(setupTemplateCache);
+  .run(setupHttp);
 
 processAppOpts();
