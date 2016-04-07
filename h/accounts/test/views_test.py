@@ -375,10 +375,9 @@ class TestForgotPasswordController(object):
 
         controller.post()
 
-        mailer.send.assert_called_once_with(request,
-                                            recipients=['giraffe@thezoo.org'],
-                                            subject='subject',
-                                            body='body')
+        mailer.send.delay.assert_called_once_with(recipients=['giraffe@thezoo.org'],
+                                                  subject='subject',
+                                                  body='body')
 
     def test_post_redirects_on_success(self):
         request = DummyRequest(method='POST')
@@ -546,10 +545,9 @@ class TestRegisterController(object):
 
         controller.post()
 
-        mailer.send.assert_called_once_with(request,
-                                            recipients=['bob@example.com'],
-                                            subject='subject',
-                                            body='body')
+        mailer.send.delay.assert_called_once_with(recipients=['bob@example.com'],
+                                                  subject='subject',
+                                                  body='body')
 
     @mock.patch('h.accounts.views.RegistrationEvent')
     def test_post_no_event_when_validation_fails(self, event, notify):
