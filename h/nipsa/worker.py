@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 """Worker functions for the NIPSA feature."""
-import json
 
 from elasticsearch import helpers
 
+from h.celery import celery
+from h.celery import get_task_logger
 from h.nipsa import search
+
+log = get_task_logger(__name__)
 
 
 def add_nipsa_action(index, annotation):
@@ -31,40 +34,26 @@ def remove_nipsa_action(index, annotation):
     }
 
 
-def add_or_remove_nipsa(client, index, userid, action):
-    """Add/remove the NIPSA flag to/from all of the user's annotations."""
-    assert action in ("add_nipsa", "remove_nipsa")
-    if action == "add_nipsa":
-        query = search.not_nipsad_annotations(userid)
-        action_func = add_nipsa_action
-    else:
-        query = search.nipsad_annotations(userid)
-        action_func = remove_nipsa_action
-
-    annotations = helpers.scan(client=client, query=query)
-    actions = [action_func(index, a) for a in annotations]
-    helpers.bulk(client=client, actions=actions)
+def bulk_update_annotations(client, query, action):
+    """Update annotations for a user with the given NIPSA state."""
+    annotations = helpers.scan(client=client.conn,
+                               index=client.index,
+                               query=query)
+    actions = [action(client.index, a) for a in annotations]
+    helpers.bulk(client=client.conn, actions=actions)
 
 
-def worker(request):
-    """Worker function for NIPSA'ing and un-NIPSA'ing users.
+@celery.task
+def add_nipsa(userid):
+    log.info("setting nipsa flag for user annotations: %s", userid)
+    bulk_update_annotations(celery.request.es,
+                            search.not_nipsad_annotations(userid),
+                            add_nipsa_action)
 
-    This is a worker function that listens for user-related NIPSA messages on
-    NSQ (when the NIPSA API adds the NIPSA flag to or removes the NIPSA flag
-    from a user) and adds the NIPSA flag to or removes the NIPSA flag from all
-    of the NIPSA'd user's annotations.
 
-    """
-    def handle_message(_, message):
-        """Handle a message on the "nipsa_users_annotations" channel."""
-        request.feature.clear()
-
-        add_or_remove_nipsa(
-            client=request.es.conn,
-            index=request.es.index,
-            **json.loads(message.body))
-
-    reader = request.get_queue_reader(
-        "nipsa_user_requests", "nipsa_users_annotations")
-    reader.on_message.connect(handle_message)
-    reader.start(block=True)
+@celery.task
+def remove_nipsa(userid):
+    log.info("clearing nipsa flag for user annotations: %s", userid)
+    bulk_update_annotations(celery.request.es,
+                            search.nipsad_annotations(userid),
+                            remove_nipsa_action)
