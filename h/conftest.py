@@ -8,6 +8,7 @@ to put fixture functions that are useful application-wide.
 import collections
 import os
 
+import mock
 import pytest
 
 from pyramid import testing
@@ -148,11 +149,24 @@ def mailer(config):
 
 @pytest.fixture
 def notify(config, request):
-    from mock import patch
-
-    patcher = patch.object(config.registry, 'notify', autospec=True)
+    patcher = mock.patch.object(config.registry, 'notify', autospec=True)
     request.addfinalizer(patcher.stop)
     return patcher.start()
+
+
+@pytest.fixture
+def patch(request):
+    """
+    A fixture that assists with creating other fixtures. Wraps `mock.patch`.
+    """
+    def _patch(target, **kwargs):
+        options = {'autospec': True}
+        options.update(kwargs)
+        patcher = mock.patch(target, **options)
+        obj = patcher.start()
+        request.addfinalizer(patcher.stop)
+        return obj
+    return _patch
 
 
 @pytest.fixture
